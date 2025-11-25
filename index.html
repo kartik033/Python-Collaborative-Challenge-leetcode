@@ -91,7 +91,6 @@
     <!-- The main application script, using Babel to process JSX -->
     <script type="text/babel">
         // Global variables must be redefined or sourced locally for standalone operation
-        // IMPORTANT: The Firebase configuration below has been successfully updated.
         const FIREBASE_CONFIG = {
             apiKey: "AIzaSyBvJBuJsfu6dMwY5779HJtxL5ZxuW9E6hk", 
             authDomain: "python-collaborative-challenge.firebaseapp.com",
@@ -113,11 +112,15 @@
         const PROBLEM_DOC_ID = 'currentProblem';
         
         const MOCK_PROBLEMS = [
-          { id: 'P001', title: 'The Multi-Sum Maze (Two Sum)', statement: "Given an array of integers `nums` and a target integer `target`, return indices of the two numbers such that they add up to `target`. Write a function `def two_sum(nums, target):`.", difficulty: 'Easy', fnName: 'two_sum', testCases: [{ input: { nums: [2, 7, 11, 15], target: 9 }, expected: [0, 1] }, { input: { nums: [3, 2, 4], target: 6 }, expected: [1, 2] }, { input: { nums: [3, 3], target: 6 }, expected: [0, 1] }] },
-          { id: 'P002', title: 'Reverse Linked List Iteratively', statement: "Reverse a singly linked list. For this exercise, return the reversed array representation of the input array. Write a function `def reverse_list(arr):`.", difficulty: 'Medium', fnName: 'reverse_list', testCases: [{ input: { arr: [1, 2, 3, 4, 5] }, expected: [5, 4, 3, 2, 1] }, { input: { arr: [1] }, expected: [1] }, { input: { arr: [] }, expected: [] }] },
-          { id: 'P003', title: 'Balanced Parentheses Checker', statement: "Given a string `s` containing just the characters '(', ')', '{', '}', '[' and ']', determine if the input string is valid. Write a function `def is_valid(s):`.", difficulty: 'Hard', fnName: 'is_valid', testCases: [{ input: { s: "(){}[]" }, expected: true }, { input: { s: "([{}])" }, expected: true }, { input: { s: "([)]" }, expected: false }, { input: { s: "[" }, expected: false }] },
+          { id: 'P001', title: 'The Multi-Sum Maze (Two Sum)', statement: "Given an array of integers `nums` and a target integer `target`, return indices of the two numbers such that they add up to `target`. Write a function `def two_sum(nums, target):`.", difficulty: 'Easy', fnName: 'two_sum', paramNames: ['nums', 'target'], testCases: [{ input: { nums: [2, 7, 11, 15], target: 9 }, expected: [0, 1] }, { input: { nums: [3, 2, 4], target: 6 }, expected: [1, 2] }, { input: { nums: [3, 3], target: 6 }, expected: [0, 1] }] },
+          { id: 'P002', title: 'Reverse Linked List Iteratively', statement: "Reverse a singly linked list. For this exercise, return the reversed array representation of the input array. Write a function `def reverse_list(arr):`.", difficulty: 'Medium', fnName: 'reverse_list', paramNames: ['arr'], testCases: [{ input: { arr: [1, 2, 3, 4, 5] }, expected: [5, 4, 3, 2, 1] }, { input: { arr: [1] }, expected: [1] }, { input: { arr: [] }, expected: [] }] },
+          { id: 'P003', title: 'Balanced Parentheses Checker', statement: "Given a string `s` containing just the characters '(', ')', '{', '}', '[' and ']', determine if the input string is valid. Write a function `def is_valid(s):`.", difficulty: 'Hard', fnName: 'is_valid', paramNames: ['s'], testCases: [{ input: { s: "(){}[]" }, expected: true }, { input: { s: "([{}])" }, expected: true }, { input: { s: "([)]" }, expected: false }, { input: { s: "[" }, expected: false }] },
         ];
         
+        const DEFAULT_CUSTOM_TESTS = JSON.stringify([
+            { input: { nums: [1, 5, 8], target: 13 }, expected: [1, 2] }
+        ], null, 2);
+
         const { useState, useEffect, useCallback, useMemo } = React;
 
         // --- Utility Functions for TTS (WAV conversion) ---
@@ -223,10 +226,7 @@
             const problem = MOCK_PROBLEMS.find(p => p.id === problemId);
             if (!problem) return "# Problem not found";
 
-            const params = problemId === 'P001' ? 'nums, target' : 
-                           problemId === 'P002' ? 'arr' :
-                           problemId === 'P003' ? 's' :
-                           'input';
+            const params = problem.paramNames.join(', ');
 
             return `def ${problem.fnName}(${params}):
     """
@@ -234,7 +234,7 @@
     The code will be executed against test cases using Pyodide.
     """
     
-    # Your solution here. Example:
+    # Example:
     # return [0, 1] 
     return None
 `;
@@ -255,6 +255,9 @@
           const [showNotification, setShowNotification] = useState(false);
           const [isSpeaking, setIsSpeaking] = useState(false);
           const [selectedDifficulty, setSelectedDifficulty] = useState('All'); 
+          
+          // New state for custom test cases
+          const [customTestCases, setCustomTestCases] = useState(DEFAULT_CUSTOM_TESTS);
           
           // History State
           const [solvedHistory, setSolvedHistory] = useState([]);
@@ -413,7 +416,6 @@
                         type: "OBJECT",
                         properties: {
                             "hint": { "type": "STRING", "description": "A concise, single-sentence clue to solve the problem, without giving away the full solution. Should mention relevant Python data structures." },
-                            // This is the CORRECTED line 327:
                             "concept": { "type": "STRING", "description": "The main computer science or mathematical concept required to solve the problem (e.g., 'Hash Map', 'Two Pointers', 'Recursion')." },
                             "explanation": { "type": "STRING", "description": "A detailed, two-paragraph explanation of the core concept and how it applies to this specific type of problem, focusing on Python best practices." },
                             "youtubeLink": { "type": "STRING", "description": "A relevant, generic YouTube URL discussing the core concept (e.g., a Python Two Sum video for P001). MUST start with https://www.youtube.com/watch?v=" }
@@ -487,6 +489,7 @@
                 statement: problem.statement,
                 difficulty: problem.difficulty,
                 fnName: problem.fnName, 
+                paramNames: problem.paramNames,
                 testCases: problem.testCases,
                 ownerId: userId,
                 submissions: {}, 
@@ -506,39 +509,49 @@
 
           
           // --- Python Test Runner (Pyodide) ---
-          const runPythonTests = useCallback(async (code, fnName, testCases) => {
+          const runPythonTests = useCallback(async (code, fnName, paramNames, testCases) => {
             if (!pyodide) {
               return { passed: false, message: 'Pyodide interpreter is not loaded yet.' };
             }
 
             try {
+              // 1. Run the Python code to define the function
               await pyodide.runPythonAsync(code);
 
               let allPassed = true;
               let results = [];
+              let passedCount = 0;
 
               for (const [index, test] of testCases.entries()) {
-                const inputArgs = Object.values(test.input);
+                // Ensure arguments are ordered correctly based on function signature
+                const inputArgs = paramNames.map(name => test.input[name]);
+
                 const expected = test.expected;
                 
+                // Convert JS arguments to Python-friendly JSON strings
                 const pyArgs = inputArgs.map(arg => JSON.stringify(arg).replace(/"/g, "'")).join(', ');
                 
+                // Python wrapper to safely call the function and capture output
                 const pyTestCall = `
 import json
 import traceback
 
 def safe_call():
+    # Convert string representation of arguments back into Python objects
     args = [json.loads(arg) for arg in [${pyArgs}]] 
     return ${fnName}(*args)
 
 try:
     actual = safe_call()
     actual_repr = actual.__repr__()
+    # Convert Python result back to JS object via Pyodide
     js_actual = pyodide.to_js(actual, dict_converter=Object.fromEntries)
     
+    # Print a JSON line we can parse reliably
     print(json.dumps({'actual': js_actual, 'actual_repr': actual_repr}))
     
 except Exception as e:
+    # Capture the full traceback for better error reporting
     print(json.dumps({'error': traceback.format_exc()}))
 `;
                 
@@ -548,20 +561,39 @@ except Exception as e:
                 try {
                     await pyodide.runPythonAsync(pyTestCall);
                     
-                    const jsonLine = output.trim().split('\n').find(line => line.startsWith('{') && line.endsWith('}'));
+                    // Look for the last line that looks like our JSON result
+                    const outputLines = output.trim().split('\n');
+                    const jsonLine = outputLines.filter(line => line.startsWith('{') && line.endsWith('}')).pop();
                     const pyResult = JSON.parse(jsonLine || '{}');
 
                     if (pyResult.error) {
                         allPassed = false;
                         if (results.length === 0) {
-                            const errorMsg = pyResult.error.split('\n').filter(line => line.trim()).slice(-3).join('\n').trim();
-                            results.push({ index: index + 1, passed: false, message: `Runtime Error in Test ${index + 1}:\n${errorMsg}` });
+                            // Extract relevant error info
+                            const tracebackLines = pyResult.error.split('\n');
+                            const userCodeLineMatch = tracebackLines.find(line => line.includes('in <exec>'));
+                            const errorTypeAndMsg = tracebackLines.pop().trim();
+                            
+                            let lineNumber = null;
+                            if (userCodeLineMatch) {
+                                const lineMatch = userCodeLineMatch.match(/line (\d+)/i);
+                                lineNumber = lineMatch ? parseInt(lineMatch[1], 10) : null;
+                            }
+                            
+                            const message = lineNumber 
+                                ? `Runtime Error on Line ${lineNumber}: ${errorTypeAndMsg}`
+                                : `Runtime Error: ${errorTypeAndMsg}`;
+                                
+                            results.push({ index: index + 1, passed: false, message: message });
                         }
                     } else {
                         const actual = pyResult.actual;
+                        // Use JSON stringification for robust comparison of arrays/objects
                         const isMatch = JSON.stringify(actual) === JSON.stringify(expected);
 
-                        if (!isMatch) {
+                        if (isMatch) {
+                            passedCount++;
+                        } else {
                             allPassed = false;
                             if (results.length === 0) {
                                 results.push({ index: index + 1, passed: false, 
@@ -573,12 +605,12 @@ except Exception as e:
 
                 } catch (execError) {
                   allPassed = false;
-                  results.push({ index: index + 1, passed: false, message: `Harness Error (check console): ${execError.message}` });
+                  if (results.length === 0) {
+                      results.push({ index: index + 1, passed: false, message: `Harness Error (check console): ${execError.message}` });
+                  }
                   console.error("Pyodide Harness Error:", execError);
                 }
               }
-
-              const passedCount = testCases.length - results.length;
 
               return {
                 passed: allPassed,
@@ -588,18 +620,53 @@ except Exception as e:
               };
 
             } catch (error) {
+              // This catch block handles errors *before* the function is executed (Syntax, etc.)
               let errorMessage = String(error);
-              if (errorMessage.includes("SyntaxError") || errorMessage.includes("NameError")) {
-                  const lines = errorMessage.split('\n');
-                  const relevantLine = lines.filter(line => line.startsWith('  File "<exec>",')).pop();
-                  errorMessage = relevantLine ? `Syntax/Name Error:\n${lines.pop().trim()}` : `Compilation Error: ${errorMessage.split('\n').pop().trim()}`;
+              
+              let lineMatch = errorMessage.match(/line (\d+)/i);
+              let lineNumber = lineMatch ? parseInt(lineMatch[1], 10) : null;
+              
+              let displayMessage = `Compilation Error: ${errorMessage.split('\n').pop().trim()}`;
+              if (lineNumber) {
+                  // For Pyodide, the line number is often off by a few lines due to the wrapper script. 
+                  // Let's adjust slightly or just show the best guess.
+                  displayMessage = `Syntax/Compilation Error on Line ${lineNumber}: ${errorMessage.split('\n').pop().trim()}`;
               }
-              return { passed: false, message: `Python Error: ${errorMessage}` };
+              
+              return { 
+                  passed: false, 
+                  message: displayMessage,
+                  lineNumber: lineNumber 
+              };
             }
           }, [pyodide]);
 
+          // Action to run code against custom tests
+          const runCustomTests = async () => {
+            if (!currentProblem || isLoading || isPyodideLoading || !pyodide) return;
+            setIsLoading(true);
+            setTestResult('');
+            
+            let customTests;
+            try {
+                customTests = JSON.parse(customTestCases);
+                if (!Array.isArray(customTests) || customTests.length === 0) {
+                    setTestResult('❌ Invalid Custom Tests: Must be a non-empty JSON array.');
+                    setIsLoading(false);
+                    return;
+                }
+            } catch (e) {
+                setTestResult('❌ Invalid Custom Tests: Input is not valid JSON.');
+                setIsLoading(false);
+                return;
+            }
 
-          // Submission Action
+            const testRun = await runPythonTests(userCode, currentProblem.fnName, currentProblem.paramNames, customTests);
+            setTestResult(`Custom Test Result: ${testRun.message}`);
+            setIsLoading(false);
+          };
+
+          // Submission Action (runs against official tests)
           const submitSolution = async () => {
             if (!db || !userId || !currentProblem || isLoading || isPyodideLoading || !pyodide) return;
             setIsLoading(true);
@@ -607,7 +674,7 @@ except Exception as e:
             let testRun = { passed: false, message: "Pyodide not ready or failed to load." };
             
             if (pyodide) {
-                testRun = await runPythonTests(userCode, currentProblem.fnName, currentProblem.testCases);
+                testRun = await runPythonTests(userCode, currentProblem.fnName, currentProblem.paramNames, currentProblem.testCases);
             }
             
             setTestResult(testRun.message);
@@ -707,11 +774,66 @@ except Exception as e:
                 setIsSpeaking(false);
             }
           };
+          
+          // --- Indentation and Tab Handling ---
+          const handleCodeKeyDown = (e) => {
+            const { selectionStart, selectionEnd, value } = e.target;
+            const tabSize = 4;
+            const tab = ' '.repeat(tabSize);
+
+            if (e.key === 'Tab') {
+                e.preventDefault();
+                
+                // Insert tab at cursor position
+                const newCode = value.substring(0, selectionStart) + tab + value.substring(selectionEnd);
+                setUserCode(newCode);
+                
+                // Move cursor past the inserted tab
+                setTimeout(() => e.target.selectionEnd = selectionStart + tabSize, 0);
+                return;
+            }
+
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                
+                // 1. Get the line content before the cursor
+                let preValue = value.substring(0, selectionStart);
+                const lastNewline = preValue.lastIndexOf('\n');
+                const currentLine = preValue.substring(lastNewline + 1);
+
+                // 2. Determine base indentation (spaces/tabs at the start of current line)
+                const match = currentLine.match(/^(\s*)/);
+                let indentation = match ? match[1] : '';
+
+                // 3. Check for structural indicators requiring extra indentation (e.g., Python blocks)
+                if (currentLine.trim().endsWith(':')) {
+                    indentation += tab; // Add 4 spaces for the new block
+                }
+                
+                // 4. If the previous line only contained indentation (was empty), don't preserve it.
+                if (currentLine.trim().length === 0) {
+                    indentation = '';
+                }
+
+                // 5. Construct the new code with a newline and indentation
+                const newCode = value.substring(0, selectionStart) + '\n' + indentation + value.substring(selectionStart);
+                setUserCode(newCode);
+                
+                // 6. Position the cursor correctly
+                setTimeout(() => {
+                    e.target.selectionStart = selectionStart + 1 + indentation.length;
+                    e.target.selectionEnd = selectionStart + 1 + indentation.length;
+                }, 0);
+            }
+        };
 
 
           const hasSubmissions = currentProblem && Object.keys(currentProblem.submissions).length > 0;
           const currentUserName = useMemo(() => `User-${userId ? userId.substring(0, 4) : 'Guest'}`, [userId]);
           
+          const isSubmissionDisabled = isLoading || isPyodideLoading || !pyodide;
+          const isError = testResult.startsWith('❌') || testResult.includes('Error');
+
           if (!isAuthReady || isPyodideLoading) {
             let message = isPyodideLoading ? 'Downloading Python Interpreter (Pyodide)...' : 'Loading Collaborative Environment...';
             return (
@@ -723,7 +845,6 @@ except Exception as e:
             );
           }
 
-          const isSubmissionDisabled = isLoading || isPyodideLoading || !pyodide;
 
           return (
             <div className="min-h-screen bg-gray-900 p-4 md:p-8 text-white font-sans">
@@ -910,8 +1031,11 @@ except Exception as e:
                     <textarea
                       value={userCode}
                       onChange={(e) => setUserCode(e.target.value)}
+                      onKeyDown={handleCodeKeyDown}
                       rows="12"
-                      className="w-full p-4 bg-gray-700 border border-gray-600 rounded-xl font-mono text-sm text-white resize-none focus:ring-green-500 focus:border-green-500 outline-none"
+                      className={`w-full p-4 bg-gray-700 border-4 rounded-xl font-mono text-sm text-white resize-none outline-none ${
+                        isError ? 'border-red-500 focus:border-red-500' : 'border-gray-600 focus:border-green-500'
+                      }`}
                       placeholder="Write your Python function here..."
                     />
 
@@ -925,12 +1049,12 @@ except Exception as e:
                             : 'bg-indigo-600 hover:bg-indigo-500 transform hover:scale-[1.02] active:scale-[0.98]'
                         }`}
                       >
-                        {isLoading ? 'Running Python Tests...' : 'Run Python Tests & Submit'}
+                        {isLoading ? 'Running Official Tests...' : 'Run Official Tests & Submit'}
                       </button>
 
                       <div className={`text-xl font-semibold p-3 rounded-xl w-full md:w-auto text-center ${
                         testResult.startsWith('✅') ? 'bg-green-900 text-green-300' : 
-                        testResult.includes('Error') || testResult.startsWith('❌') ? 'bg-red-900 text-red-300' :
+                        isError ? 'bg-red-900 text-red-300' :
                         'bg-gray-700 text-gray-400'
                       }`}>
                         {testResult || 'Awaiting Submission...'}
@@ -938,6 +1062,35 @@ except Exception as e:
                     </div>
                   </div>
                 )}
+                
+                {/* Custom Test Case Editor */}
+                {currentProblem && (
+                    <div className="bg-gray-800 p-6 rounded-xl shadow-2xl mb-8 border border-gray-700">
+                        <h2 className="text-3xl font-bold text-orange-400 mb-4">Custom Test Cases (Local)</h2>
+                        <p className="text-sm text-gray-400 mb-3">Define your own tests as a JSON array. Input keys must match the function parameters: <code className="text-yellow-400">{currentProblem.paramNames.join(', ')}</code>.</p>
+                        
+                        <textarea
+                            value={customTestCases}
+                            onChange={(e) => setCustomTestCases(e.target.value)}
+                            rows="6"
+                            className="w-full p-3 bg-gray-700 border border-gray-600 rounded-xl font-mono text-xs text-white resize-none focus:ring-orange-500 focus:border-orange-500 outline-none"
+                            placeholder='[{"input": {"nums": [1, 2], "target": 3}, "expected": [0, 1]}]'
+                        />
+
+                        <button
+                            onClick={runCustomTests}
+                            disabled={isSubmissionDisabled}
+                            className={`w-full md:w-auto mt-3 px-6 py-2 rounded-xl font-bold shadow-lg transition duration-300 ease-in-out ${
+                                isSubmissionDisabled 
+                                    ? 'bg-gray-700 text-gray-400 cursor-not-allowed' 
+                                    : 'bg-orange-600 hover:bg-orange-500 transform hover:scale-[1.02] active:scale-[0.98]'
+                            }`}
+                        >
+                            {isLoading ? 'Running Custom Tests...' : 'Run Custom Tests Locally'}
+                        </button>
+                    </div>
+                )}
+
 
                 {/* Submissions Leaderboard */}
                 {currentProblem && (
@@ -995,6 +1148,4 @@ except Exception as e:
 
     </script>
 </body>
-
 </html>
-

@@ -1,0 +1,630 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Python Collaborative Challenge</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/11.0.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore-compat.js"></script>
+    <style>
+        body {
+            margin: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
+        }
+        .monaco-editor-container {
+            border: 1px solid #e5e7eb;
+            border-radius: 0.5rem;
+            overflow: hidden;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        .animate-spin {
+            animation: spin 1s linear infinite;
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+
+        // ============================================
+        // FIREBASE CONFIGURATION
+        // ============================================
+        const FIREBASE_CONFIG = {
+            apiKey: "AIzaSyCCkSYW6kVZkBqUAkv6KLqYvDovVW3N-hg",
+            authDomain: "python-collaborative-challenge.firebaseapp.com",
+            projectId: "python-collaborative-challenge",
+            storageBucket: "python-collaborative-challenge.firebasestorage.app",
+            messagingSenderId: "50346389978",
+            appId: "1:50346389978:web:26649d7799c25b8bfa10e3"
+        };
+
+        // Initialize Firebase
+        let db = null;
+        try {
+            if (!firebase.apps.length) {
+                firebase.initializeApp(FIREBASE_CONFIG);
+            }
+            db = firebase.firestore();
+            console.log('✅ Firebase initialized successfully');
+        } catch (error) {
+            console.error('❌ Firebase initialization error:', error);
+        }
+
+        // ============================================
+        // CONSTANTS & UTILITIES
+        // ============================================
+        const ARTIFACT_ID = 'collaborative-py-app-standalone';
+        
+        const generateUserId = () => {
+            let userId = localStorage.getItem('userId');
+            if (!userId) {
+                userId = crypto.randomUUID();
+                localStorage.setItem('userId', userId);
+            }
+            return userId;
+        };
+
+        const USER_ID = generateUserId();
+
+        // ============================================
+        // PROBLEM SETS DATA
+        // ============================================
+        const PROBLEM_SETS = {
+            basics: {
+                name: "Python Basics",
+                icon: "🐍",
+                color: "bg-blue-500",
+                problems: [
+                    {
+                        id: "hello-world",
+                        title: "Hello, World!",
+                        difficulty: "Easy",
+                        description: "Write a function that returns the string 'Hello, World!'",
+                        starterCode: "def hello_world():\n    # Your code here\n    pass",
+                        testCases: [
+                            { input: "", expected: "Hello, World!", description: "Should return 'Hello, World!'" }
+                        ],
+                        solution: "def hello_world():\n    return 'Hello, World!'"
+                    },
+                    {
+                        id: "add-numbers",
+                        title: "Add Two Numbers",
+                        difficulty: "Easy",
+                        description: "Write a function that takes two numbers and returns their sum",
+                        starterCode: "def add_numbers(a, b):\n    # Your code here\n    pass",
+                        testCases: [
+                            { input: "2, 3", expected: "5", description: "add_numbers(2, 3) should return 5" },
+                            { input: "-1, 1", expected: "0", description: "add_numbers(-1, 1) should return 0" },
+                            { input: "0, 0", expected: "0", description: "add_numbers(0, 0) should return 0" }
+                        ],
+                        solution: "def add_numbers(a, b):\n    return a + b"
+                    }
+                ]
+            },
+            strings: {
+                name: "String Manipulation",
+                icon: "📝",
+                color: "bg-green-500",
+                problems: [
+                    {
+                        id: "reverse-string",
+                        title: "Reverse a String",
+                        difficulty: "Easy",
+                        description: "Write a function that reverses a string",
+                        starterCode: "def reverse_string(s):\n    # Your code here\n    pass",
+                        testCases: [
+                            { input: "'hello'", expected: "'olleh'", description: "reverse_string('hello') should return 'olleh'" },
+                            { input: "'Python'", expected: "'nohtyP'", description: "reverse_string('Python') should return 'nohtyP'" }
+                        ],
+                        solution: "def reverse_string(s):\n    return s[::-1]"
+                    },
+                    {
+                        id: "palindrome",
+                        title: "Check Palindrome",
+                        difficulty: "Medium",
+                        description: "Write a function that checks if a string is a palindrome (reads same forwards and backwards)",
+                        starterCode: "def is_palindrome(s):\n    # Your code here\n    pass",
+                        testCases: [
+                            { input: "'racecar'", expected: "True", description: "is_palindrome('racecar') should return True" },
+                            { input: "'hello'", expected: "False", description: "is_palindrome('hello') should return False" },
+                            { input: "'A man a plan a canal Panama'", expected: "True", description: "Should ignore case and spaces" }
+                        ],
+                        solution: "def is_palindrome(s):\n    cleaned = ''.join(c.lower() for c in s if c.isalnum())\n    return cleaned == cleaned[::-1]"
+                    }
+                ]
+            },
+            lists: {
+                name: "Lists & Arrays",
+                icon: "📊",
+                color: "bg-purple-500",
+                problems: [
+                    {
+                        id: "find-max",
+                        title: "Find Maximum",
+                        difficulty: "Easy",
+                        description: "Write a function that finds the maximum number in a list",
+                        starterCode: "def find_max(numbers):\n    # Your code here\n    pass",
+                        testCases: [
+                            { input: "[1, 5, 3, 9, 2]", expected: "9", description: "find_max([1, 5, 3, 9, 2]) should return 9" },
+                            { input: "[-1, -5, -3]", expected: "-1", description: "find_max([-1, -5, -3]) should return -1" }
+                        ],
+                        solution: "def find_max(numbers):\n    return max(numbers)"
+                    },
+                    {
+                        id: "sum-list",
+                        title: "Sum List Elements",
+                        difficulty: "Easy",
+                        description: "Write a function that returns the sum of all numbers in a list",
+                        starterCode: "def sum_list(numbers):\n    # Your code here\n    pass",
+                        testCases: [
+                            { input: "[1, 2, 3, 4, 5]", expected: "15", description: "sum_list([1, 2, 3, 4, 5]) should return 15" },
+                            { input: "[]", expected: "0", description: "sum_list([]) should return 0" }
+                        ],
+                        solution: "def sum_list(numbers):\n    return sum(numbers)"
+                    }
+                ]
+            }
+        };
+
+        // ============================================
+        // PYODIDE SETUP
+        // ============================================
+        let pyodideInstance = null;
+        let pyodideLoading = false;
+
+        const loadPyodide = async () => {
+            if (pyodideInstance) return pyodideInstance;
+            if (pyodideLoading) {
+                while (pyodideLoading) {
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                }
+                return pyodideInstance;
+            }
+
+            pyodideLoading = true;
+            try {
+                const script = document.createElement('script');
+                script.src = 'https://cdn.jsdelivr.net/pyodide/v0.24.1/full/pyodide.js';
+                document.head.appendChild(script);
+
+                await new Promise((resolve, reject) => {
+                    script.onload = resolve;
+                    script.onerror = reject;
+                });
+
+                pyodideInstance = await window.loadPyodide({
+                    indexURL: 'https://cdn.jsdelivr.net/pyodide/v0.24.1/full/'
+                });
+
+                console.log('✅ Pyodide loaded successfully');
+                return pyodideInstance;
+            } catch (error) {
+                console.error('❌ Failed to load Pyodide:', error);
+                throw error;
+            } finally {
+                pyodideLoading = false;
+            }
+        };
+
+        // ============================================
+        // FIREBASE OPERATIONS
+        // ============================================
+        const saveCurrentProblem = async (categoryId, problemId) => {
+            if (!db) return;
+            try {
+                await db.collection('artifacts')
+                    .doc(ARTIFACT_ID)
+                    .collection('public')
+                    .collection('data')
+                    .collection('problemSets')
+                    .doc('currentProblem')
+                    .set({
+                        categoryId,
+                        problemId,
+                        timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+            } catch (error) {
+                console.error('Error saving current problem:', error);
+            }
+        };
+
+        const loadCurrentProblem = (onUpdate) => {
+            if (!db) return () => {};
+            try {
+                return db.collection('artifacts')
+                    .doc(ARTIFACT_ID)
+                    .collection('public')
+                    .collection('data')
+                    .collection('problemSets')
+                    .doc('currentProblem')
+                    .onSnapshot(
+                        (doc) => {
+                            if (doc.exists) {
+                                const data = doc.data();
+                                onUpdate(data.categoryId, data.problemId);
+                            }
+                        },
+                        (error) => {
+                            console.error('Firestore problem subscription failed:', error);
+                        }
+                    );
+            } catch (error) {
+                console.error('Error setting up problem listener:', error);
+                return () => {};
+            }
+        };
+
+        const saveSolvedProblem = async (problemId) => {
+            if (!db) return;
+            try {
+                await db.collection('artifacts')
+                    .doc(ARTIFACT_ID)
+                    .collection('users')
+                    .doc(USER_ID)
+                    .collection('solved_problems')
+                    .doc(problemId)
+                    .set({
+                        solved: true,
+                        timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+            } catch (error) {
+                console.error('Error saving solved problem:', error);
+            }
+        };
+
+        const loadSolvedProblems = (onUpdate) => {
+            if (!db) return () => {};
+            try {
+                return db.collection('artifacts')
+                    .doc(ARTIFACT_ID)
+                    .collection('users')
+                    .doc(USER_ID)
+                    .collection('solved_problems')
+                    .onSnapshot(
+                        (snapshot) => {
+                            const solved = new Set();
+                            snapshot.forEach(doc => solved.add(doc.id));
+                            onUpdate(solved);
+                        },
+                        (error) => {
+                            console.error('Error loading solved problems:', error);
+                        }
+                    );
+            } catch (error) {
+                console.error('Error setting up solved problems listener:', error);
+                return () => {};
+            }
+        };
+
+        // ============================================
+        // MAIN APP COMPONENT
+        // ============================================
+        function PythonChallengeApp() {
+            const [selectedCategory, setSelectedCategory] = useState('basics');
+            const [selectedProblem, setSelectedProblem] = useState(0);
+            const [code, setCode] = useState('');
+            const [output, setOutput] = useState('');
+            const [isRunning, setIsRunning] = useState(false);
+            const [pyodideReady, setPyodideReady] = useState(false);
+            const [testResults, setTestResults] = useState([]);
+            const [solvedProblems, setSolvedProblems] = useState(new Set());
+            const textareaRef = useRef(null);
+
+            const currentProblemSet = PROBLEM_SETS[selectedCategory];
+            const currentProblem = currentProblemSet.problems[selectedProblem];
+
+            // Initialize Pyodide
+            useEffect(() => {
+                loadPyodide().then(() => setPyodideReady(true)).catch(console.error);
+            }, []);
+
+            // Load solved problems
+            useEffect(() => {
+                const unsubscribe = loadSolvedProblems(setSolvedProblems);
+                return () => unsubscribe();
+            }, []);
+
+            // Sync problem selection
+            useEffect(() => {
+                const unsubscribe = loadCurrentProblem((categoryId, problemId) => {
+                    if (categoryId && problemId && PROBLEM_SETS[categoryId]) {
+                        const problemIndex = PROBLEM_SETS[categoryId].problems.findIndex(p => p.id === problemId);
+                        if (problemIndex !== -1) {
+                            setSelectedCategory(categoryId);
+                            setSelectedProblem(problemIndex);
+                        }
+                    }
+                });
+                return () => unsubscribe();
+            }, []);
+
+            // Update code when problem changes
+            useEffect(() => {
+                setCode(currentProblem.starterCode);
+                setOutput('');
+                setTestResults([]);
+            }, [currentProblem]);
+
+            const handleProblemChange = (categoryId, problemIndex) => {
+                setSelectedCategory(categoryId);
+                setSelectedProblem(problemIndex);
+                const problem = PROBLEM_SETS[categoryId].problems[problemIndex];
+                saveCurrentProblem(categoryId, problem.id);
+            };
+
+            const runCode = async () => {
+                if (!pyodideReady) {
+                    setOutput('⏳ Python environment is still loading...');
+                    return;
+                }
+
+                setIsRunning(true);
+                setOutput('');
+                setTestResults([]);
+
+                try {
+                    const pyodide = await loadPyodide();
+                    await pyodide.runPythonAsync(code);
+
+                    const results = [];
+                    let allPassed = true;
+
+                    for (const testCase of currentProblem.testCases) {
+                        try {
+                            const functionName = code.match(/def\s+(\w+)/)[1];
+                            const testCode = testCase.input 
+                                ? `${functionName}(${testCase.input})`
+                                : `${functionName}()`;
+                            
+                            const result = await pyodide.runPythonAsync(testCode);
+                            const resultStr = String(result);
+                            const passed = resultStr === testCase.expected;
+                            
+                            results.push({
+                                description: testCase.description,
+                                passed,
+                                expected: testCase.expected,
+                                actual: resultStr
+                            });
+
+                            if (!passed) allPassed = false;
+                        } catch (error) {
+                            results.push({
+                                description: testCase.description,
+                                passed: false,
+                                error: error.message
+                            });
+                            allPassed = false;
+                        }
+                    }
+
+                    setTestResults(results);
+
+                    if (allPassed) {
+                        setOutput('✅ All tests passed! Great job!');
+                        await saveSolvedProblem(currentProblem.id);
+                    } else {
+                        setOutput('❌ Some tests failed. Keep trying!');
+                    }
+                } catch (error) {
+                    setOutput(`❌ Error: ${error.message}`);
+                } finally {
+                    setIsRunning(false);
+                }
+            };
+
+            const handleKeyDown = (e) => {
+                if (e.key === 'Tab') {
+                    e.preventDefault();
+                    const start = e.target.selectionStart;
+                    const end = e.target.selectionEnd;
+                    const newCode = code.substring(0, start) + '    ' + code.substring(end);
+                    setCode(newCode);
+                    setTimeout(() => {
+                        e.target.selectionStart = e.target.selectionEnd = start + 4;
+                    }, 0);
+                }
+            };
+
+            const showSolution = () => {
+                if (confirm('Are you sure you want to see the solution? Try solving it yourself first!')) {
+                    setCode(currentProblem.solution);
+                }
+            };
+
+            return (
+                <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+                    <header className="bg-white shadow-sm border-b border-gray-200">
+                        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center space-x-3">
+                                    <span className="text-3xl">🐍</span>
+                                    <h1 className="text-2xl font-bold text-gray-900">Python Challenge Platform</h1>
+                                </div>
+                                <div className="flex items-center space-x-4">
+                                    <span className="text-sm text-gray-600">
+                                        Solved: {solvedProblems.size} problems
+                                    </span>
+                                    {!pyodideReady && (
+                                        <div className="flex items-center space-x-2 text-amber-600">
+                                            <div className="animate-spin h-4 w-4 border-2 border-amber-600 border-t-transparent rounded-full"></div>
+                                            <span className="text-sm">Loading Python...</span>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    </header>
+
+                    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+                        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+                            {/* Sidebar */}
+                            <div className="lg:col-span-1">
+                                <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+                                    <div className="p-4 bg-gradient-to-r from-blue-500 to-purple-600">
+                                        <h2 className="text-lg font-semibold text-white">Problem Sets</h2>
+                                    </div>
+                                    <div className="p-2">
+                                        {Object.entries(PROBLEM_SETS).map(([key, set]) => (
+                                            <div key={key} className="mb-4">
+                                                <div className="flex items-center space-x-2 px-3 py-2 bg-gray-50 rounded-lg mb-2">
+                                                    <span className="text-xl">{set.icon}</span>
+                                                    <h3 className="font-semibold text-gray-900">{set.name}</h3>
+                                                </div>
+                                                {set.problems.map((problem, idx) => {
+                                                    const isActive = selectedCategory === key && selectedProblem === idx;
+                                                    const isSolved = solvedProblems.has(problem.id);
+                                                    return (
+                                                        <button
+                                                            key={problem.id}
+                                                            onClick={() => handleProblemChange(key, idx)}
+                                                            className={`w-full text-left px-3 py-2 rounded-lg mb-1 transition-colors ${
+                                                                isActive
+                                                                    ? 'bg-blue-100 text-blue-900 font-medium'
+                                                                    : 'text-gray-700 hover:bg-gray-100'
+                                                            }`}
+                                                        >
+                                                            <div className="flex items-center justify-between">
+                                                                <span className="text-sm">{problem.title}</span>
+                                                                {isSolved && <span className="text-green-500">✓</span>}
+                                                            </div>
+                                                            <span className={`text-xs ${
+                                                                problem.difficulty === 'Easy' ? 'text-green-600' :
+                                                                problem.difficulty === 'Medium' ? 'text-yellow-600' :
+                                                                'text-red-600'
+                                                            }`}>
+                                                                {problem.difficulty}
+                                                            </span>
+                                                        </button>
+                                                    );
+                                                })}
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Main Content */}
+                            <div className="lg:col-span-3 space-y-6">
+                                {/* Problem Description */}
+                                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                                    <div className="flex items-start justify-between mb-4">
+                                        <div>
+                                            <h2 className="text-2xl font-bold text-gray-900 mb-2">{currentProblem.title}</h2>
+                                            <span className={`inline-block px-3 py-1 rounded-full text-sm font-medium ${
+                                                currentProblem.difficulty === 'Easy' ? 'bg-green-100 text-green-800' :
+                                                currentProblem.difficulty === 'Medium' ? 'bg-yellow-100 text-yellow-800' :
+                                                'bg-red-100 text-red-800'
+                                            }`}>
+                                                {currentProblem.difficulty}
+                                            </span>
+                                        </div>
+                                        {solvedProblems.has(currentProblem.id) && (
+                                            <span className="text-3xl">✅</span>
+                                        )}
+                                    </div>
+                                    <p className="text-gray-700 leading-relaxed">{currentProblem.description}</p>
+                                </div>
+
+                                {/* Code Editor */}
+                                <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+                                    <div className="flex items-center justify-between px-4 py-3 bg-gray-50 border-b border-gray-200">
+                                        <h3 className="font-semibold text-gray-900">Code Editor</h3>
+                                        <div className="flex space-x-2">
+                                            <button
+                                                onClick={showSolution}
+                                                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                                            >
+                                                💡 Show Solution
+                                            </button>
+                                            <button
+                                                onClick={runCode}
+                                                disabled={isRunning || !pyodideReady}
+                                                className="px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-green-500 to-emerald-600 rounded-lg hover:from-green-600 hover:to-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                                            >
+                                                {isRunning ? '⏳ Running...' : '▶️ Run Code'}
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div className="monaco-editor-container">
+                                        <textarea
+                                            ref={textareaRef}
+                                            value={code}
+                                            onChange={(e) => setCode(e.target.value)}
+                                            onKeyDown={handleKeyDown}
+                                            className="w-full h-80 p-4 font-mono text-sm resize-none focus:outline-none bg-gray-900 text-gray-100"
+                                            spellCheck="false"
+                                        />
+                                    </div>
+                                </div>
+
+                                {/* Output */}
+                                {(output || testResults.length > 0) && (
+                                    <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+                                        <div className="px-4 py-3 bg-gray-50 border-b border-gray-200">
+                                            <h3 className="font-semibold text-gray-900">Output</h3>
+                                        </div>
+                                        <div className="p-4">
+                                            {output && (
+                                                <div className={`mb-4 p-3 rounded-lg font-medium ${
+                                                    output.includes('✅') ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800'
+                                                }`}>
+                                                    {output}
+                                                </div>
+                                            )}
+                                            {testResults.length > 0 && (
+                                                <div className="space-y-2">
+                                                    {testResults.map((result, idx) => (
+                                                        <div
+                                                            key={idx}
+                                                            className={`p-3 rounded-lg border ${
+                                                                result.passed
+                                                                    ? 'bg-green-50 border-green-200'
+                                                                    : 'bg-red-50 border-red-200'
+                                                            }`}
+                                                        >
+                                                            <div className="flex items-start justify-between">
+                                                                <div className="flex-1">
+                                                                    <p className="font-medium text-gray-900 mb-1">
+                                                                        {result.passed ? '✅' : '❌'} {result.description}
+                                                                    </p>
+                                                                    {!result.passed && !result.error && (
+                                                                        <div className="text-sm text-gray-600">
+                                                                            <p>Expected: <code className="bg-white px-2 py-1 rounded">{result.expected}</code></p>
+                                                                            <p>Got: <code className="bg-white px-2 py-1 rounded">{result.actual}</code></p>
+                                                                        </div>
+                                                                    )}
+                                                                    {result.error && (
+                                                                        <p className="text-sm text-red-600">Error: {result.error}</p>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        // Render App
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<PythonChallengeApp />);
+    </script>
+</body>
+</html>
+

@@ -91,17 +91,15 @@
     <!-- The main application script, using Babel to process JSX -->
     <script type="text/babel">
         // Global variables must be redefined or sourced locally for standalone operation
-        // IMPORTANT: Replace the placeholder below with your actual Firebase config JSON
-        // Get this from your Firebase project settings -> Web App.
-       const FIREBASE_CONFIG = {
-        apiKey: "AIzaSyBvJBuJsfu6dMwY5779HJtxL5ZxuW9E6hk", 
-        authDomain: "python-collaborative-challenge.firebaseapp.com",
-        projectId: "python-collaborative-challenge",
-        storageBucket: "python-collaborative-challenge.firebasestorage.app",
-        messagingSenderId: "50346389978",
-        appId: "1:50346389978:web:26649d7799c25b8bfa10e3"
-        // Note: The 'measurementId' is optional and can be safely excluded for this application.
-    };
+        // IMPORTANT: The Firebase configuration below has been successfully updated.
+        const FIREBASE_CONFIG = {
+            apiKey: "AIzaSyBvJBuJsfu6dMwY5779HJtxL5ZxuW9E6hk", 
+            authDomain: "python-collaborative-challenge.firebaseapp.com",
+            projectId: "python-collaborative-challenge",
+            storageBucket: "python-collaborative-challenge.firebasestorage.app",
+            messagingSenderId: "50346389978",
+            appId: "1:50346389978:web:26649d7799c25b8bfa10e3"
+        };
         
         // In a standalone environment, we use a fixed app ID for pathing.
         const appId = 'collaborative-py-app-standalone';
@@ -415,7 +413,8 @@
                         type: "OBJECT",
                         properties: {
                             "hint": { "type": "STRING", "description": "A concise, single-sentence clue to solve the problem, without giving away the full solution. Should mention relevant Python data structures." },
-                            "concept": { "type: "STRING", "description": "The main computer science or mathematical concept required to solve the problem (e.g., 'Hash Map', 'Two Pointers', 'Recursion')." },
+                            // FIX: Corrected typo from "type: "STRING" to "type": "STRING"
+                            "concept": { "type": "STRING", "description": "The main computer science or mathematical concept required to solve the problem (e.g., 'Hash Map', 'Two Pointers', 'Recursion')." },
                             "explanation": { "type": "STRING", "description": "A detailed, two-paragraph explanation of the core concept and how it applies to this specific type of problem, focusing on Python best practices." },
                             "youtubeLink": { "type": "STRING", "description": "A relevant, generic YouTube URL discussing the core concept (e.g., a Python Two Sum video for P001). MUST start with https://www.youtube.com/watch?v=" }
                         },
@@ -996,5 +995,4 @@ except Exception as e:
 
     </script>
 </body>
-
 </html>
